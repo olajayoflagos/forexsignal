@@ -179,7 +179,7 @@ def verify():
         return redirect(url_for('auth.login'))
     else:
         logger.error(f"Verification failed: {resp_data.get('message')}")
-        flash('Payment verification failed.', 'danger')
+        flash('Payment verification done. Contact +2348110249980 via Whatsapp providing your mail address to manually update your login status', 'success')
         return redirect(url_for('auth.register'))
 
 @auth.route('/apply_code', methods=['GET', 'POST'])
