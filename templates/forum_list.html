@@ -1,0 +1,53 @@
+{# templates/forum_list.html #}
+{% extends "base.html" %}
+
+{% block title %}Forum — ForexSignal{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2 class="mb-0">Community Forum</h2>
+  <a href="{{ url_for('forum.new_post') }}" class="btn btn-primary">
+    + New Topic
+  </a>
+</div>
+
+<div class="table-responsive">
+  <table class="table table-hover align-middle">
+    <thead class="table-light">
+      <tr>
+        <th scope="col">Topic</th>
+        <th scope="col">Author</th>
+        <th scope="col">Replies</th>
+        <th scope="col">Last Activity</th>
+        <th scope="col" class="text-end">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for topic in topics %}
+        <tr>
+          <td class="text-truncate" style="max-width: 200px;">
+            <a href="{{ url_for('forum.view_post', post_id=topic.id) }}">
+              {{ topic.title }}
+            </a>
+          </td>
+          <td>{{ topic.author_name }}</td>
+          <td>{{ topic.reply_count }}</td>
+          <td>{{ topic.last_updated.strftime('%Y-%m-%d %H:%M') }}</td>
+          <td class="text-end">
+            <a href="{{ url_for('forum.view_post', post_id=topic.id) }}"
+               class="btn btn-sm btn-outline-secondary">
+              View
+            </a>
+          </td>
+        </tr>
+      {% else %}
+        <tr>
+          <td colspan="5" class="text-center text-muted py-4">
+            No topics yet—be the first to start a discussion!
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

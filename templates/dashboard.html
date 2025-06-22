@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard – ForexSignal{% endblock %}
+
+{% block content %}
+  <div class="container my-5">
+    <h1 class="mb-4 text-primary fw-bold">Live Dashboard</h1>
+
+    {% if signals %}
+      <div class="table-responsive">
+        <table class="table table-striped table-bordered align-middle table-hover shadow-sm">
+          <thead class="table-dark">
+            <tr>
+              <th scope="col" class="text-center">Time (UTC)</th>
+              <th scope="col" class="text-center">Symbol</th>
+              <th scope="col" class="text-center">Direction</th>
+              <th scope="col" class="text-center">Entry</th>
+              <th scope="col" class="text-center">TP</th>
+              <th scope="col" class="text-center">SL</th>
+              <th scope="col" class="text-center">Stake ($)</th>
+              <th scope="col" class="text-center">Score</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for sig in signals %}
+              <tr class="align-middle">
+                <td class="text-center">{{ sig.time[:19].replace('T', ' ') }}</td>
+                <td class="text-center">{{ sig.symbol }}</td>
+                <td class="text-center">{{ sig.direction }}</td>
+                <td class="text-center">{{ '%.5f'|format(sig.entry_price) }}</td>
+                <td class="text-center">{{ '%.5f'|format(sig.tp) }}</td>
+                <td class="text-center">{{ '%.5f'|format(sig.stop_loss) }}</td>
+                <td class="text-center">{{ '%.2f'|format(sig.stake) }}</td>
+                <td class="text-center">{{ sig.score or '-' }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="alert alert-warning text-center shadow-sm p-4" role="alert">
+        No signals available at the moment. Please check back later!
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  <script>
+    // Auto-refresh the dashboard every 5 minutes
+    setTimeout(() => location.reload(), 5 * 60 * 1000);
+
+    // Add hover effect to table rows
+    document.querySelectorAll('table tbody tr').forEach(row => {
+      row.addEventListener('mouseover', () => row.classList.add('table-active'));
+      row.addEventListener('mouseout', () => row.classList.remove('table-active'));
+    });
+  </script>
+  <style>
+    .table-hover tbody tr:hover {
+      background-color: #f8f9fa;
+      transition: background-color 0.3s;
+    }
+    .table-active {
+      background-color: #e9ecef !important;
+    }
+  </style>
+{% endblock %}

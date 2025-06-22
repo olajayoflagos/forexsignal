@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Apply Code — ForexSignal{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-md-6">
+      <div class="card border-0 shadow-lg rounded-4">
+        <div class="card-body p-5">
+          <h2 class="card-title text-center mb-4 text-primary">Apply Access Code</h2>
+          {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+              {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show mb-3" role="alert">
+                  {{ message }}
+                  <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+              {% endfor %}
+            {% endif %}
+          {% endwith %}
+          <form method="post" action="{{ url_for('auth.apply_code') }}" class="needs-validation" novalidate>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="mb-4">
+              <label for="code" class="form-label fw-bold">Enter Your Access Code</label>
+              <input type="text" class="form-control form-control-lg rounded-pill" id="code" name="code" placeholder="e.g., x7k9p2m3" required>
+              <div class="invalid-feedback">Please enter a valid access code.</div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg w-100 rounded-pill py-3">Apply Code</button>
+          </form>
+          <div class="mt-4 text-center">
+            <a href="{{ url_for('auth.login') }}" class="text-decoration-none link-primary fw-bold">Back to Login</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function() {
+    'use strict';
+    var forms = document.querySelectorAll('.needs-validation');
+    Array.prototype.slice.call(forms).forEach(function(form) {
+      form.addEventListener('submit', function(event) {
+        if (!form.checkValidity()) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        form.classList.add('was-validated');
+      }, false);
+    });
+  })();
+</script>
+{% endblock %}

@@ -1,0 +1,72 @@
+{# templates/post.html #}
+{% extends "base.html" %}
+
+{% block title %}{{ post.title or "Forum Post" }}{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+  <h2>{{ post.title }}</h2>
+  <p class="text-muted">
+    Posted by <strong>{{ post.author_name }}</strong>
+    on {{ post.created.strftime('%Y-%m-%d %H:%M') }}
+  </p>
+  <hr>
+  <p>{{ post.text }}</p>
+
+  {% if post.image %}
+    <div class="mt-3">
+      <img
+        src="{{ post.image }}"
+        class="img-fluid rounded"
+        alt="Post image"
+      >
+    </div>
+  {% endif %}
+</div>
+
+<hr>
+
+<h4 class="mt-4">Comments ({{ post.comments|length }})</h4>
+<div class="list-group mb-5">
+  {% for c in post.comments %}
+    <div class="list-group-item">
+      <div class="d-flex justify-content-between">
+        <small class="text-muted">
+          {{ c.created.strftime('%Y-%m-%d %H:%M') }}
+        </small>
+        <small class="text-muted">
+          by {{ c.by_name or c.by }}
+        </small>
+      </div>
+      <p class="mb-1">{{ c.text }}</p>
+    </div>
+  {% else %}
+    <div class="list-group-item text-center text-muted">
+      No comments yet. Be the first to reply!
+    </div>
+  {% endfor %}
+</div>
+
+{% if current_user.is_authenticated %}
+  <h5>Leave a Comment</h5>
+  <form
+    method="post"
+    action="{{ url_for('forum.new_comment', post_id=post.id) }}"
+  >
+    <div class="mb-3">
+      <textarea
+        name="text"
+        class="form-control"
+        rows="3"
+        placeholder="Your comment…"
+        required
+      ></textarea>
+    </div>
+    <button type="submit" class="btn btn-primary">Post Comment</button>
+  </form>
+{% else %}
+  <div class="alert alert-warning">
+    <a href="{{ url_for('auth.login') }}">Log in</a> to leave a comment.
+  </div>
+{% endif %}
+{% endblock %}

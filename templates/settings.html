@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Settings — ForexSignal{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <h1 class="mb-4 text-primary fw-bold">Account Settings</h1>
+  <div class="row row-cols-1 row-cols-md-2 g-4">
+    <!-- Profile Update -->
+    <div class="col">
+      <div class="card h-100 border-0 shadow-lg rounded-4">
+        <div class="card-body p-4">
+          <h5 class="card-title mb-4 text-primary">My Profile</h5>
+          {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+              {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show mb-3" role="alert">
+                  {{ message }}
+                  <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+              {% endfor %}
+            {% endif %}
+          {% endwith %}
+          <form method="post" action="{{ url_for('settings.update_profile') }}" class="needs-validation" novalidate>
+            <div class="mb-3">
+              <label for="username" class="form-label fw-bold">Username</label>
+              <input type="text" class="form-control form-control-lg rounded-pill" id="username" name="username" value="{{ user.username }}" required>
+              <div class="invalid-feedback">Please enter a username.</div>
+            </div>
+            <div class="mb-3">
+              <label for="email" class="form-label fw-bold">Email Address</label>
+              <input type="email" class="form-control form-control-lg rounded-pill" id="email" name="email" value="{{ user.email }}" required>
+              <div class="invalid-feedback">Please enter a valid email.</div>
+            </div>
+            <div class="mb-3">
+              <label for="phone" class="form-label fw-bold">Phone Number</label>
+              <input type="tel" class="form-control form-control-lg rounded-pill" id="phone" name="phone" value="{{ user.phone or '' }}">
+              <div class="invalid-feedback">Please enter a valid phone number.</div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg rounded-pill py-2">Save Profile</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Feedback / Support -->
+    <div class="col">
+      <div class="card h-100 border-0 shadow-lg rounded-4">
+        <div class="card-body p-4">
+          <h5 class="card-title mb-4 text-primary">Send Feedback / Support</h5>
+          {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+              {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show mb-3" role="alert">
+                  {{ message }}
+                  <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+              {% endfor %}
+            {% endif %}
+          {% endwith %}
+          <form method="post" action="{{ url_for('settings.send_feedback') }}" class="needs-validation" novalidate>
+            <div class="mb-3">
+              <label for="subject" class="form-label fw-bold">Subject</label>
+              <input type="text" class="form-control form-control-lg rounded-pill" id="subject" name="subject" placeholder="Brief subject" required>
+              <div class="invalid-feedback">Please enter a subject.</div>
+            </div>
+            <div class="mb-3">
+              <label for="message" class="form-label fw-bold">Message</label>
+              <textarea class="form-control form-control-lg rounded-3" id="message" name="message" rows="5" placeholder="Describe your issue or feedback" required></textarea>
+              <div class="invalid-feedback">Please enter a message.</div>
+            </div>
+            <button type="submit" class="btn btn-secondary btn-lg rounded-pill py-2">Send Feedback</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function() {
+    'use strict';
+    var forms = document.querySelectorAll('.needs-validation');
+    Array.prototype.slice.call(forms).forEach(function(form) {
+      form.addEventListener('submit', function(event) {
+        if (!form.checkValidity()) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        form.classList.add('was-validated');
+      }, false);
+    });
+  })();
+</script>
+{% endblock %}

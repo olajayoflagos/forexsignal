@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Login — ForexSignal{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-md-6">
+      <div class="card border-0 shadow-lg rounded-4">
+        <div class="card-body p-5">
+          <h2 class="card-title text-center mb-4 text-primary">Login to ForexSignal</h2>
+          {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+              {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                  {{ message }}
+                  <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+              {% endfor %}
+            {% endif %}
+          {% endwith %}
+          <form method="post" action="{{ url_for('auth.login') }}" class="needs-validation" novalidate>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div class="mb-3">
+              <label for="identifier" class="form-label fw-bold">Email, Username, or Phone</label>
+              <input type="text" class="form-control form-control-lg rounded-pill" id="identifier" name="identifier" placeholder="you@example.com or your username" required autofocus>
+              <div class="invalid-feedback">Please enter your email, username, or phone.</div>
+            </div>
+
+            <div class="mb-3">
+              <label for="password" class="form-label fw-bold">Password</label>
+              <input type="password" class="form-control form-control-lg rounded-pill" id="password" name="password" placeholder="••••••••" required>
+              <div class="invalid-feedback">Please enter your password.</div>
+            </div>
+
+            <div class="mb-3 form-check">
+              <input type="checkbox" class="form-check-input" id="remember" name="remember">
+              <label class="form-check-label fw-bold" for="remember">Remember me</label>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-lg w-100 rounded-pill py-3">Log In</button>
+          </form>
+
+          <div class="mt-4 text-center">
+            <a href="{{ url_for('auth.apply_code') }}" class="text-decoration-none link-primary fw-bold">Have an access code? Enter it here</a>
+          </div>
+          <div class="mt-2 text-center">
+            <a href="{{ url_for('auth.register') }}" class="text-decoration-none link-primary fw-bold">New here? Register an account</a>
+          </div>
+          <div class="mt-2 text-center">
+            <a href="{{ url_for('auth.forgot_password') }}" class="text-decoration-none link-primary fw-bold">Forgot your password?</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      'use strict';
+      var forms = document.querySelectorAll('.needs-validation');
+      Array.prototype.slice.call(forms).forEach(function(form) {
+        form.addEventListener('submit', function(event) {
+          if (!form.checkValidity()) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+          form.classList.add('was-validated');
+        }, false);
+      });
+    })();
+  </script>
+{% endblock %}

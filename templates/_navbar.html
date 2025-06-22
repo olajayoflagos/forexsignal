@@ -1,0 +1,64 @@
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark" style="background: linear-gradient(90deg, #343a40, #495057);">
+  <div class="container-fluid">
+    <a class="navbar-brand text-warning fw-bold" href="{{ url_for('dashboard.view') }}">ForexSignal</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu" aria-controls="navMenu" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navMenu">
+      <ul class="navbar-nav ms-auto">
+        {% if not current_user.is_authenticated %}
+          <li class="nav-item">
+            <a class="nav-link{% if request.endpoint=='auth.login' %} active{% endif %}" href="{{ url_for('auth.login') }}">
+              <span class="text-white">Login</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link{% if request.endpoint=='auth.register' %} active{% endif %}" href="{{ url_for('auth.register') }}">
+              <span class="text-white">Register</span>
+            </a>
+          </li>
+        {% else %}
+          <li class="nav-item">
+            <a class="nav-link{% if request.endpoint.startswith('dashboard.') %} active{% endif %}" href="{{ url_for('dashboard.view') }}">
+              <span class="text-white">Dashboard</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link{% if request.endpoint.startswith('forum.') %} active{% endif %}" href="{{ url_for('forum.forum_list') }}">
+              <span class="text-white">Forum</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link{% if request.endpoint.startswith('news.') %} active{% endif %}" href="{{ url_for('news.view_news') }}">
+              <span class="text-white">News</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link{% if request.endpoint.startswith('settings.') %} active{% endif %}" href="{{ url_for('settings.view') }}">
+              <span class="text-white">Settings</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('auth.logout') }}">
+              <span class="text-white">Logout</span>
+            </a>
+          </li>
+        {% endif %}
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<style>
+  .nav-link {
+    transition: color 0.3s ease;
+  }
+  .nav-link:hover {
+    color: #ffca2c !important;
+  }
+  .nav-link.active {
+    color: #ffca2c !important;
+    font-weight: bold;
+  }
+</style>

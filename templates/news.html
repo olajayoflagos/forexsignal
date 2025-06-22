@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Calendar & News — ForexSignal{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+
+  <!-- Date Picker -->
+  <div class="col-12 mb-3">
+    <form method="GET" action="{{ url_for('news.view_news') }}" class="d-flex">
+      <input type="date" name="date" value="{{ selected_date }}" class="form-control me-2" required>
+      <button type="submit" class="btn btn-primary">Filter by Date</button>
+    </form>
+  </div>
+
+  <!-- Economic Calendar -->
+  <div class="col-12">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h3 class="card-title mb-3">Economic Calendar (This Week)</h3>
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead class="table-dark">
+              <tr>
+                <th>Date</th><th>Time</th><th>Currency</th>
+                <th>Event</th><th>Impact</th>
+              </tr>
+            </thead>
+            <tbody>
+            {% for e in calendar %}
+              <tr>
+                <td>{{ e.date }}</td>
+                <td>{{ e.time }}</td>
+                <td>{{ e.currency }}</td>
+                <td>{{ e.event }}</td>
+                <td>
+                  {% if e.impact == "high" %}
+                    <span class="badge bg-danger">High</span>
+                  {% elif e.impact == "medium" %}
+                    <span class="badge bg-warning text-dark">Medium</span>
+                  {% else %}
+                    <span class="badge bg-success">Low</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% else %}
+              <tr><td colspan="5" class="text-center">No events found for {{ selected_date }}</td></tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Forex & Global News -->
+  <div class="col-12">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h3 class="card-title mb-3">Forex & Global News</h3>
+        <div class="list-group">
+        {% for it in news_items %}
+          <a href="{{ it.url or it.link }}" target="_blank"
+             class="list-group-item list-group-item-action">
+            <div class="d-flex justify-content-between">
+              <h5 class="mb-1">{{ it.title }}</h5>
+              <small>{{ it.published }}</small>
+            </div>
+            {% if it.summary %}
+              <p class="mb-1">{{ it.summary }}</p>
+            {% endif %}
+          </a>
+        {% else %}
+          <div class="list-group-item text-center text-muted">
+            No news available
+          </div>
+        {% endfor %}
+        </div>
+
+        <!-- Pagination -->
+        <nav aria-label="News pages" class="mt-3">
+          <ul class="pagination justify-content-center">
+            <li class="page-item {% if page<=1 %}disabled{% endif %}">
+              <a class="page-link" href="{{ url_for('news.view_news', page=page-1, date=date) }}">
+                ← Newer
+              </a>
+            </li>
+            <li class="page-item disabled">
+              <span class="page-link">Page {{ page }} of {{ pages }}</span>
+            </li>
+            <li class="page-item {% if page>=pages %}disabled{% endif %}">
+              <a class="page-link" href="{{ url_for('news.view_news', page=page+1, date=date) }}">
+                Older →
+              </a>
+            </li>
+          </ul>
+        </nav>
+
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
