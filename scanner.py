@@ -171,3 +171,6 @@ async def scan_signals_once():
             logger.info(f"[{now.strftime('%H:%M')}] No strong signal (score={best_score})")
 
         await asyncio.sleep(300)
+        if __name__ == "__main__":
+            firestore_config.initialize_firestore()
+            asyncio.run(scan_signals_once())
