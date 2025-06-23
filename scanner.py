@@ -18,8 +18,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 import logging
 
-import numpy as _np
-_пр.NaN = _np.nan
+import numpy as np
 import pandas as pd
 import pandas_ta as ta
 from deriv_api import DerivAPI
