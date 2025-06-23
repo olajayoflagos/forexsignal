@@ -1,5 +1,16 @@
-import numpy as _np
-_np.NaN = _np.nan
+#
+#
+#  --- Enhanced Forex & Volatility Index Signal Scanner ---
+#
+#  This script connects to the Deriv API to analyze multiple financial symbols.
+#  It uses a combination of Fibonacci retracement levels and technical indicators
+#  (MACD, RSI, 200 SMA) to identify the single best trading opportunity
+#  across all configured symbols during each scan cycle.
+#
+#  Version: 2.0
+#  Date: 2025-06-23
+#
+#
 
 import os
 import asyncio
@@ -7,6 +18,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 import logging
 
+import numpy as _np
 import pandas as pd
 import pandas_ta as ta
 from deriv_api import DerivAPI
@@ -15,14 +27,37 @@ from dotenv import load_dotenv
 
 import firestore_config
 
+# --- Configuration ---
+_np.NaN = _np.nan  # Set numpy NaN representation
 load_dotenv()
+
+# --- API and Account Settings ---
 API_TOKEN = os.getenv("DERIV_TOKEN")
 INITIAL_CAPITAL = float(os.getenv("CAPITAL", "10000"))
-RISK_PCT = 0.02
-FIB_TOLERANCE = 0.005
-SPREAD_PIPS = 1.0
-RRR = 3.0
 
+# --- Strategy Parameters ---
+RISK_PCT = 0.02  # Percentage of capital to risk per trade
+RRR = 3.0  # Risk-to-Reward Ratio
+FIB_TOLERANCE = 0.015  # 1.5% tolerance zone around Fibonacci levels
+STOP_LOSS_PIPS = {  # Pips/points for stop loss calculation
+    "DEFAULT": 60,
+    "XAUUSD": 100,  # Gold uses a wider stop
+}
+
+# --- Technical Indicator Settings ---
+MA_LONG, MA_SHORT = 200, 20
+RSI_LEN, SMA_LEN = 16, 16
+MACD_FAST, MACD_SLOW, MACD_SIGNAL = 4, 24, 16
+
+# --- Fibonacci Levels for Analysis ---
+# Key: Entry level, Value: Target level
+FIB_LEVELS = {
+    0.382: 0.618,
+    0.5: 0.0,
+    0.618: 0.382,
+}
+
+# --- Symbols to Scan ---
 SYMBOLS = [
     "frxEURUSD", "frxGBPUSD", "frxUSDJPY", "frxAUDUSD", "frxNZDUSD", "frxUSDCAD",
     "frxUSDCHF", "frxGBPJPY", "frxEURGBP", "frxEURJPY", "frxEURCHF", "frxAUDJPY",
@@ -32,23 +67,25 @@ SYMBOLS = [
     "JD50", "JD75", "JD100",
 ]
 
-MA_LONG, MA_SHORT = 200, 20
-RSI_LEN, SMA_LEN = 16, 16
-MACD_FAST, MACD_SLOW, MACD_SIGNAL = 4, 24, 16
+# --- Firestore Settings ---
+SAVE_TO_DB_THRESHOLD = 3 # Only save signals with a score of 3 ("High")
 
-FIB_LEVELS = {
-    0.0: None,
-    0.3: 0.618,
-    0.5: -0.3,
-    0.618: 1.0,
-    -1.618: None
-}
-
-# Configure logging
-logging.basicConfig(level=logging.DEBUG)
+# --- Logging Configuration ---
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-async def fetch_live_candles(api, symbol: str, granularity: int, count: int):
+
+def get_pip_value(symbol: str) -> float:
+    """Returns the value of a single pip for a given symbol."""
+    if "JPY" in symbol:
+        return 0.01
+    if "XAUUSD" in symbol:
+        return 0.01
+    return 0.0001
+
+
+async def fetch_live_candles(api: DerivAPI, symbol: str, granularity: int, count: int) -> pd.DataFrame:
+    """Fetches historical candle data from the Deriv API."""
     end_time = int(datetime.now().timestamp())
     req = {
         "ticks_history": symbol,
@@ -62,115 +99,155 @@ async def fetch_live_candles(api, symbol: str, granularity: int, count: int):
         resp = await api.send(req)
         df = pd.DataFrame(resp.get("candles", []))
         if df.empty:
-            logger.warning(f"[{symbol}] No candles returned")
+            logger.debug(f"No candles returned for {symbol}")
             return pd.DataFrame()
         df["epoch"] = pd.to_datetime(df["epoch"], unit="s")
-        return df.set_index("epoch").sort_index().tail(count)
+        return df.set_index("epoch").sort_index()
     except ResponseError as e:
-        logger.error(f"[{symbol}] fetch error: {e}")
+        logger.error(f"API Error fetching candles for {symbol}: {e}")
         return pd.DataFrame()
 
-def compute_indicators(df2h: pd.DataFrame, df5m: pd.DataFrame):
+
+def compute_indicators(df2h: pd.DataFrame, df5m: pd.DataFrame) -> (pd.DataFrame, dict):
+    """Calculates all required technical indicators and Fibonacci levels."""
+    # 1. Calculate Fibonacci levels from the 2-hour chart swing
     swing = df2h.iloc[-50:]
     hi, lo = swing["high"].max(), swing["low"].min()
     fibs = {lvl: lo + lvl * (hi - lo) for lvl in FIB_LEVELS}
+    
+    # Also add the swing high and low to the fibs dictionary for potential use
+    fibs[0.0] = lo
+    fibs[1.0] = hi
 
+    # 2. Calculate technical indicators on the 5-minute chart
     df = df5m.copy()
     df["ma_long"] = ta.sma(df["close"], length=MA_LONG)
     df["ma_short"] = ta.sma(df["close"], length=MA_SHORT)
     df["rsi"] = ta.rsi(df["close"], length=RSI_LEN)
     df["sma"] = ta.sma(df["close"], length=SMA_LEN)
     macd = ta.macd(df["close"], fast=MACD_FAST, slow=MACD_SLOW, signal=MACD_SIGNAL)
+    
     return df.join(macd).dropna(), fibs
 
-def generate_signal(df: pd.DataFrame, fibs: dict, equity: float, symbol: str):
+
+def analyze_signal_for_symbol(df: pd.DataFrame, fibs: dict, equity: float, symbol: str) -> dict | None:
+    """
+    Analyzes the latest candle data against the strategy rules and returns a scored signal.
+    Returns: A dictionary with the signal details or None.
+    """
     if df.empty or len(df) < MA_LONG:
-        return None, 0, None
+        return None
 
     last = df.iloc[-1]
     price = last["close"]
-    score = 0
-    tp = None
 
     for lvl, lvl_price in fibs.items():
-        if lvl_price is None:
-            continue
+        # --- Condition 1: Price Location ---
+        # Is the current price within the tolerance zone of a Fibonacci level?
         if abs(price - lvl_price) / lvl_price < FIB_TOLERANCE:
-            score += 1
-            opp = FIB_LEVELS[lvl]
-            if opp in fibs and fibs.get(FIB_LEVELS.get(lvl)):
-                tp = fibs[FIB_LEVELS[lvl]]
-            else:
-                adverse = (1000 if "XAUUSD" in symbol else 600) * 0.0001
-                tp = price + (adverse * RRR if last["MACDh_4_24_16"] > 0 else -adverse * RRR)
+            score = 1
+            direction = None
 
-            long_cond = last["MACDh_4_24_16"] > 0 and last["rsi"] > 50 and price > last["ma_long"]
-            short_cond = last["MACDh_4_24_16"] < 0 and last["rsi"] < 50 and price < last["ma_long"]
+            # --- Condition 2: Primary Trend (MACD & RSI) ---
+            is_uptrend_primary = last["MACDh_4_24_16"] > 0 and last["rsi"] > 50
+            is_downtrend_primary = last["MACDh_4_24_16"] < 0 and last["rsi"] < 50
 
-            if long_cond:
-                score += 2
-                direction = "BUY"
-            elif short_cond:
-                score += 2
-                direction = "SELL"
-            else:
-                return None, 0, None
-
-            adverse = (1000 if "XAUUSD" in symbol else 600) * 0.0001
-            if abs(price - lvl_price) >= adverse:
+            if is_uptrend_primary:
                 score += 1
-                sl = price - adverse if direction == "BUY" else price + adverse
-                stake = equity * RISK_PCT
+                direction = "BUY"
+            elif is_downtrend_primary:
+                score += 1
+                direction = "SELL"
+
+            # --- Condition 3: Confirmation Trend (200 SMA) ---
+            if direction == "BUY" and price > last["ma_long"]:
+                score += 1
+            elif direction == "SELL" and price < last["ma_long"]:
+                score += 1
+            
+            # --- Determine Signal Strength and Finalize ---
+            if direction:
+                signal_strength_map = {1: "Low", 2: "Medium", 3: "High"}
+                signal_strength = signal_strength_map.get(score, "Low")
+
+                # Calculate Trade Parameters
+                pip_value = get_pip_value(symbol)
+                sl_pips = STOP_LOSS_PIPS.get(symbol, STOP_LOSS_PIPS["DEFAULT"])
+                adverse_distance = sl_pips * pip_value
+                
+                sl = price - adverse_distance if direction == "BUY" else price + adverse_distance
+                tp = price + (adverse_distance * RRR) if direction == "BUY" else price - (adverse_distance * RRR)
+
                 return {
                     "symbol": symbol,
+                    "strength": signal_strength,
+                    "score": score,
                     "direction": direction,
                     "entry_price": price,
                     "tp": tp,
                     "stop_loss": sl,
-                    "stake": stake
-                }, score, adverse / 0.0001
+                    "stake": equity * RISK_PCT,
+                    "timestamp": datetime.now(ZoneInfo("Africa/Lagos")).isoformat()
+                }
 
-    return None, 0, None
+    return None
+
 
 async def scan_signals_once():
-    api = DerivAPI(app_id="1", access_token=API_TOKEN)
+    """Main function to run the scanning loop."""
+    logger.info("Connecting to Deriv API...")
+    api = DerivAPI(app_id=os.getenv("DERIV_APP_ID", "1"), access_token=API_TOKEN)
     await api.authorize({"authorize": API_TOKEN})
+    logger.info("Connection successful. Starting scanner...")
 
     while True:
         now = datetime.now(ZoneInfo("Africa/Lagos"))
-        if now.hour >= 18 or now.hour < 5:
-            logger.info("↪️ Outside trading hours: %s", now.time())
+        if now.hour >= 22 or now.hour < 8:
+            logger.info(f"Outside trading hours ({now.strftime('%H:%M')}). Sleeping for 5 minutes.")
             await asyncio.sleep(300)
             continue
 
-        best_score = -1
-        best_sig = None
-        best_pips = None
+        best_signal = None
 
         for symbol in SYMBOLS:
-            df2h = await fetch_live_candles(api, symbol, 7200, 50)
-            df5m = await fetch_live_candles(api, symbol, 300, MA_LONG + 50)
+            df2h = await fetch_live_candles(api, symbol, 7200, 50)  # 2-hour candles for swing
+            df5m = await fetch_live_candles(api, symbol, 300, MA_LONG + 50)  # 5-min candles for entry
+
             if df2h.empty or df5m.empty or len(df5m) < MA_LONG:
+                logger.debug(f"Skipping {symbol} due to insufficient data.")
                 continue
 
-            df_ind, fibs = compute_indicators(df2h, df5m)
-            sig, score, pips = generate_signal(df_ind, fibs, INITIAL_CAPITAL, symbol)
-            if score > best_score:
-                best_score = score
-                best_sig = sig
-                best_pips = pips
+            df_with_indicators, fib_levels = compute_indicators(df2h, df5m)
+            current_signal = analyze_signal_for_symbol(df_with_indicators, fib_levels, INITIAL_CAPITAL, symbol)
 
-        if best_sig and best_score >= 3:
-            best_sig["time"] = now.isoformat()
-            best_sig["score"] = best_score
-            best_sig["pips_threshold"] = best_pips
-            firestore_config.db.collection("signals").add(best_sig)
-
-            logger.info(f"\n[{now.strftime('%H:%M')}] Signal ✔️ {best_sig}")
+            if current_signal:
+                # If we find a signal, check if it's better than the best one we've seen so far
+                if best_signal is None or current_signal["score"] > best_signal["score"]:
+                    best_signal = current_signal
+        
+        # After checking all symbols, report the single best one
+        if best_signal:
+            logger.info(f"Found Best Signal: [{best_signal['strength'].upper()} SIGNAL] for {best_signal['symbol']} "
+                        f"(Score: {best_signal['score']}/3) -> {best_signal['direction']}")
+            
+            # Save to database only if it's a high-quality signal
+            if best_signal["score"] >= SAVE_TO_DB_THRESHOLD:
+                try:
+                    firestore_config.db.collection("signals").add(best_signal)
+                    logger.info(f"High signal for {best_signal['symbol']} saved to database.")
+                except Exception as e:
+                    logger.error(f"Failed to save signal to Firestore: {e}")
         else:
-            logger.info(f"[{now.strftime('%H:%M')}] No strong signal (score={best_score})")
+            logger.info(f"No qualifying signal found across all symbols in this cycle.")
 
+        logger.info("Scan complete. Waiting for the next 5-minute candle...")
         await asyncio.sleep(300)
-        if __name__ == "__main__":
-            firestore_config.initialize_firestore()
-            asyncio.run(scan_signals_once())
+
+
+if __name__ == "__main__":
+    try:
+        firestore_config.initialize_firestore()
+        asyncio.run(scan_signals_once())
+    except Exception as e:
+        logger.error(f"A critical error occurred: {e}")
+
