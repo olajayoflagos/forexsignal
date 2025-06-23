@@ -19,6 +19,7 @@ from zoneinfo import ZoneInfo
 import logging
 
 import numpy as np
+np.NaN = np.nan  # <-- still not necessary but will work
 import pandas as pd
 import pandas_ta as ta
 from deriv_api import DerivAPI
@@ -28,7 +29,7 @@ from dotenv import load_dotenv
 import firestore_config
 
 # --- Configuration ---
-_np.NaN = _np.nan  # Set numpy NaN representation
+
 load_dotenv()
 
 # --- API and Account Settings ---
